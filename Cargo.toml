@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Command Line As A Renderer is a simple library that lets you turn the console into a screen for drawing triangles and points and what-not. An example of how to use the library can be found in main.rs."
 repository = "https://github.com/pewpewpewman/C.L.A.A.R."
+license-file = "LICENSE.txt"
 
 [dependencies]
 rand = "0.8.5"
