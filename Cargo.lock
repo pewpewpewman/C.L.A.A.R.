@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "CL_drawing"
+name = "CLAAR"
 version = "0.1.0"
 dependencies = [
  "float-cmp",

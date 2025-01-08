@@ -1,7 +1,7 @@
 use rand::Rng;
 use std::{thread, time};
-use terminal_drawing::primatives::{Point, Triangle};
-use terminal_drawing::framebuffer::FrameBuffer;
+use CLAAR::primatives::{Point, Triangle};
+use CLAAR::framebuffer::FrameBuffer;
 
 //The included binary is an example of how to use the library
 
