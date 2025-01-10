@@ -9,3 +9,4 @@ license-file = "LICENSE.txt"
 [dependencies]
 rand = "0.8.5"
 float-cmp = "0.10.0"
+colored = "3.0.0"

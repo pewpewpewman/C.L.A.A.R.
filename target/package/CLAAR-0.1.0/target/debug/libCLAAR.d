@@ -1,0 +1,1 @@
+/home/mpaule/CL\ Render/target/package/CLAAR-0.1.0/target/debug/libCLAAR.rlib: /home/mpaule/CL\ Render/target/package/CLAAR-0.1.0/src/framebuffer.rs /home/mpaule/CL\ Render/target/package/CLAAR-0.1.0/src/lib.rs /home/mpaule/CL\ Render/target/package/CLAAR-0.1.0/src/primatives.rs
