@@ -1,5 +1,8 @@
 use colored::{Color, CustomColor};
 use float_cmp::approx_eq;
+use crate::framebuffer;
+use crate::framebuffer::FrameBuffer;
+use crate::framebuffer::Tile;
 
 pub struct Point
 {
@@ -28,7 +31,7 @@ impl Point
         }
 
         let slope : f64 = (line_point_two.y - line_point_one.y) / (line_point_two.x - line_point_one.x);
-        return self.y >= slope * (self.x - line_point_one.x) + line_point_one.y;
+        return self.y > slope * (self.x - line_point_one.x) + line_point_one.y;
     }
 
     pub fn rotate_point(self : &Self, about : &Point, angle : f64) -> Point
@@ -79,7 +82,7 @@ pub struct Triangle
 //Colorer functions color the triangle using the following four parameters:
 //x_pos, y_pos, x uv, y uv
 //Returned value is the r g b colors with 0.0 being no color and 1.0 being full color
-pub type TriColorer = Option<fn(f64, f64, f64, f64) -> (f64, f64, f64)>;
+pub type TriColorer = Option<fn(f64, f64, f64, f64) -> framebuffer::Tile>;
 
 impl Triangle
 {

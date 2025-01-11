@@ -2,35 +2,67 @@
 use crate::primatives::Point;
 use crate::primatives::Triangle;
 use colored::{Color, Colorize, CustomColor};
-use colored::Color::{Black, TrueColor};
+use terminal_size::{Width, Height, terminal_size};
 
-const ENABLE_GRID_MARKERS : bool = false;
-const GRID_MARKER_INTERVAL : u8 = 5; //make sure this is some value greater than 1
-const PIXEL_CHAR : &str = "  "; //"■";
+const PIXEL_CHAR : &str = "  ";
+
+#[derive(Clone)]
+pub struct Tile
+{
+    r : f64,
+    g : f64,
+    b : f64,
+    a : f64
+}
+
+//Type representing each tile of the buffer
+//An alpha value of one represents fully opaque
+impl Tile
+{
+    pub fn new(r : f64, g : f64, b : f64, a : f64) -> Self
+    {
+        return Self
+        {
+            r : r,
+            g : g,
+            b : b,
+            a : a,
+        };
+    }
+}
 
 pub struct FrameBuffer
 {
     //A buffer for holding which characters are in what state
-    content : Vec<Vec<Color>>,
+    content : Vec<Vec<Tile>>,
 
     //Width and Height of buffer
     width : usize,
     height : usize,
 
-    //Name to be drawn above the "screen"
-    name : String,
+    //Text data used for drawing
+    vert_border_tile : String,
+    horiz_border : String,
 }
 
 impl FrameBuffer
 {
-    pub fn new(width : usize, height : usize, name : String) -> Self
+    pub fn new() -> Self
     {
+        let (width, height) : (usize, usize);
+        match terminal_size()
+        {
+            Some((w, h)) => { width = (w.0 / 2 - 2) as usize; height = (h.0 - 4) as usize; },
+            None => { panic!("Could not get terminal size"); }
+        };
+
         return Self
         {
             width : width,
             height : height,
-            content : vec![vec![ Color::TrueColor {r : 0, g : 0, b: 0} ; width] ; height], //vectors are needed bc rust doesnt have variable array lengths >:(
-            name : name,
+            content : vec![vec![ Tile::new(0_f64, 0_f64, 0_f64, 1_f64) ; width] ; height], //vectors are needed bc rust doesnt have variable array lengths >:(
+            vert_border_tile : format!("{}", "|".on_black()),
+            horiz_border : format!("{}{}{} ", "+", "-".repeat(width * 2).on_black(), "+")
         };
     }
     
@@ -49,21 +81,21 @@ impl FrameBuffer
         std::process::Command::new("clear").status().unwrap(); //Wipe previous draw
 
         //Draw Buffer Contents with Border
+        println!("{}", self.horiz_border);
         for (row_num, row) in (1_usize..=self.height).rev().zip(self.content.iter().rev())
         {
             //Draw row contents
+            print!("{}", self.vert_border_tile);
             for tile in row
             {
-                if let Color::TrueColor {r, g, b} = tile
-                {
-                    print!("{}", PIXEL_CHAR.on_truecolor(*r, *g, *b)); //Each tile starts w/ space to make an even square
-                }
+                print!("{}", PIXEL_CHAR.on_truecolor( (255_f64 * tile.r) as u8, (255_f64 * tile.g) as u8, (255_f64 * tile.b) as u8 ));
             }
-            println!("");
+            println!("{}", self.vert_border_tile);
         }
+        println!("{}", self.horiz_border);
     }
 
-    pub fn draw_point(self : &mut Self, point : &Point, col : Color) -> ()
+    pub fn draw_point(self : &mut Self, point : &Point, tile : Tile) -> ()
     {
         //assert!((point.x as usize) < width, "X POINT VALUE TOO LARGE");
         //assert!((point.y as usize) < height, "Y POINT VALUE TOO LARGE");
@@ -72,10 +104,24 @@ impl FrameBuffer
         {
             return;
         }
-        if let Color::TrueColor {r, g, b} = col
-        {
-            self.content[point.y as usize][point.x as usize] = Color::TrueColor { r: r, g: g, b: b };
-        }
+
+        let prev_tile : Tile = Tile::new
+        (
+            self.content[point.y as usize][point.x as usize].r,
+            self.content[point.y as usize][point.x as usize].g,
+            self.content[point.y as usize][point.x as usize].b,
+            self.content[point.y as usize][point.x as usize].a
+        );
+
+        let new_tile : Tile = Tile::new
+        (
+            tile.r * tile.a + prev_tile.r * (1_f64 - tile.a),
+            tile.g * tile.a + prev_tile.g * (1_f64 - tile.a),
+            tile.b * tile.a + prev_tile.b * (1_f64 - tile.a),
+            tile.a
+        );
+
+        self.content[point.y as usize][point.x as usize] = new_tile;
     }
 
     pub fn draw_triangle(self : &mut Self, triangle : &Triangle) -> ()
@@ -84,17 +130,8 @@ impl FrameBuffer
         let x_highest_point : Point = triangle.get_point(triangle.highest_x.0.unwrap() as usize);
         let neither_x_extreme_point : Point = triangle.get_point((3 - triangle.lowest_x.0.unwrap() -  triangle.highest_x.0.unwrap()) as usize);
         let neither_x_exists : bool = (triangle.lowest_x.1 != None) || (triangle.highest_x.1 != None); //needed for edge cases with tris with 2 points at the same x coord
-        let num_tri_floor_pieces : u8 =
-        if neither_x_extreme_point.is_above_line(&x_lowest_point, &x_highest_point) || neither_x_exists
-        {
-            1
-        }
-        else
-        {
-            2
-        };
+        let num_tri_floor_pieces : u8 = if neither_x_extreme_point.is_above_line(&x_lowest_point, &x_highest_point) || neither_x_exists { 1 } else { 2 };
         //^^^ If the owner of neither x extreme is above the other two points, it's a one piece floor
-        println!("niether x existss??? {neither_x_exists}");
 
         //Go through all points within triangle extreme and determine if they lie within the tri
         let lowest_y : f64 = triangle.get_point(triangle.lowest_y.0.unwrap() as usize).y;
@@ -106,13 +143,21 @@ impl FrameBuffer
         {
             for x in (f64::max(lowest_x, 0_f64)) as usize..=(f64::min(highest_x, (self.width - 1) as f64)) as usize
             {
-                const NUM_DIVS : u8 = 1;
+                const NUM_DIVS : u16 = 1;
                 let mut num_valid_divs : u32 = 0;
 
-                //Split each tile into smaller tiles and if any of them work, the whole tile is drawn
-                for x_div in 0..=NUM_DIVS
+                //Tile color to be applied to be colored in tile
+                let mut tile : Tile =
+                match triangle.colorer
                 {
-                    for y_div in 0..=NUM_DIVS
+                    Some(colorer) => colorer(x as f64, y as f64, (x as f64 - lowest_x) / triangle.width, (y as f64 - lowest_y) / triangle.height),
+                    None => Tile::new(1_f64, 1_f64, 1_f64, 1_f64)
+                };
+
+                //Split each tile into smaller tiles and if any of them work, the whole tile is drawn
+                for x_div in 1..=NUM_DIVS
+                {
+                    for y_div in 1..=NUM_DIVS
                     {
                         let tested : Point = Point
                         {
@@ -137,45 +182,17 @@ impl FrameBuffer
                     continue;
                 }
 
-                let pixel_fitness : f64 = num_valid_divs as f64 / ((NUM_DIVS * NUM_DIVS) as f64);
-                let col : Color = match triangle.colorer
-                {
-                    Some(colorer) =>
-                    {
-                        let (r, g, b) : (f64, f64, f64) = colorer
-                        (
-                            x as f64,
-                            y as f64,
-                            (x as f64 - lowest_x) / triangle.width,
-                            (y as f64 - lowest_y) / triangle.height,
-                        );
+                let pixel_fitness : f64 = num_valid_divs as f64 / (NUM_DIVS * NUM_DIVS) as f64;
 
-                        Color::TrueColor
-                        {
-                            r : (r * 255_f64) as u8,
-                            g : (g * 255_f64) as u8,
-                            b : (b * 255_f64) as u8,
-                        }
-                    }
+                tile.a *= pixel_fitness;
 
-                    None =>
-                    {
-                        Color::TrueColor
-                        {
-                            r : (255_f64 * pixel_fitness) as u8,
-                            g : (255_f64 * pixel_fitness) as u8,
-                            b : (255_f64 * pixel_fitness) as u8,
-                        }
-                    }
-                };
-
-                self.draw_point( &Point{x : x as f64, y : y as f64}, col)
+                self.draw_point( &Point{x : x as f64, y : y as f64}, tile)
             }
         }
     }
 
     pub fn clear_buffer(self : &mut Self)
     {
-        self.content.fill(vec![  Color::TrueColor {r : 0, g : 0, b: 0} ; self.width ]);
+        self.content = vec![ vec![ Tile::new(0_f64, 0_f64, 0_f64, 1_f64) ; self.width ] ; self.height ];
     }
 }
