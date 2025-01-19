@@ -6,7 +6,7 @@ use CLAAR::framebuffer::{self, FrameBuffer, Tile};
 
 //The included binary is an example of how to use the library
 
-const FRAME_WAIT_MS : u64 = 3;
+const FRAME_WAIT_MS : u64 = 10;
 
 fn norm_cos(theta : f64) -> f64
 {
