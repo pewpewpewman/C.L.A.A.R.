@@ -138,14 +138,29 @@ impl FrameBuffer
         {
             for x in (f64::max(lowest_x, 0_f64)) as usize..=(f64::min(highest_x, (self.width - 1) as f64)) as usize
             {
-                const NUM_DIVS : u16 = 1;
+                const NUM_DIVS : u16 = 4;
                 let mut num_valid_divs : u32 = 0;
 
                 //Tile color to be applied to be colored in tile
                 let mut tile : Tile =
-                match triangle.colorer
+                match &triangle.colorer
                 {
-                    Some(colorer) => colorer(Point::new((x as f64 - lowest_x) / triangle.width, (y as f64 - lowest_y) / triangle.height), &[]),
+                    Some(colorer) =>
+                    {
+                    	let (w1, w2, w3) : (f64, f64, f64) = triangle.calc_weights(&Point::new(x as f64, y as f64));
+                    	let num_weighted_vals : u8 = triangle.coloring_data.as_ref().unwrap()[0].len() as u8;
+                    	let mut weighted_vals : Vec<f64> = vec![0_f64 ; num_weighted_vals as usize];
+                    	for weight_idx in 0..num_weighted_vals
+                    	{
+                    		weighted_vals[weight_idx as usize] =
+                    		{
+                    			triangle.coloring_data.as_ref().unwrap()[0][weight_idx as usize] * w1 +
+                    			triangle.coloring_data.as_ref().unwrap()[1][weight_idx as usize] * w2 +
+                    			triangle.coloring_data.as_ref().unwrap()[2][weight_idx as usize] * w3	
+                    		}
+                    	}
+                    	colorer(Point::new((x as f64 - lowest_x) / triangle.width, (y as f64 - lowest_y) / triangle.height), &weighted_vals)
+                    }
                     None => Tile::new(1_f64, 1_f64, 1_f64, 1_f64)
                 };
 

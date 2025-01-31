@@ -13,7 +13,7 @@ fn norm_cos(theta : f64) -> f64
 	(f64::cos(theta) + 1_f64) / 2_f64
 }
 
-fn coloring_func(uv : Point, color : &[f64 ; 3]) -> Tile
+fn coloring_func(uv : Point, color : &[f64]) -> Tile
 {
 	return Tile::new
 	(
@@ -61,7 +61,7 @@ fn main() -> Result<(), std::io::Error>
 			Some(vec![0_f64, 0_f64, 1_f64])
 		),
 
-		Option::<TriColorer>::Some(coloring_func)
+		Option::<TriColorer>::Some(Box::new(coloring_func))
 	);
 
 	let rand_tri_mid : Point = Point::new

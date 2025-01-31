@@ -77,19 +77,19 @@ pub struct Triangle
     pub width : f64,
     pub height : f64,
     //Data interpolated along the triangle during coloring - all vecs must be equal in size
-    coloring_data : Option<[ Vec<f64> ; 3]>,
+    pub coloring_data : Option<[ Vec<f64> ; 3]>,
     pub colorer : Option<TriColorer>
 }
 
 //Colorer functions color the triangle using the following four parameters:
 //UV cord is always input, float array is interped by weights
-pub type TriColorer = fn(Point, &[f64]) -> framebuffer::Tile;
+pub type TriColorer = Box<dyn Fn(Point, &[f64]) -> framebuffer::Tile>;
 
 impl Triangle
 {
     pub fn new(point_one : (Point, Option<Vec<f64>>), point_two : (Point, Option<Vec<f64>>), point_three : (Point, Option<Vec<f64>>), colorer : Option<TriColorer>) -> Triangle
     {
-    	let using_color_data : bool = (point_one.1.is_none() && point_two.1.is_none() && point_two.1.is_none());
+    	let using_color_data : bool = (!point_one.1.is_none() && !point_two.1.is_none() && !point_two.1.is_none());
     	
     	if (using_color_data)
     	{
