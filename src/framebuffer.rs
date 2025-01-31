@@ -19,9 +19,9 @@ pub struct Tile
 //An alpha value of one represents fully opaque
 impl Tile
 {
-    pub fn new(r : f64, g : f64, b : f64, a : f64) -> Self
+    pub fn new(r : f64, g : f64, b : f64, a : f64) -> Tile
     {
-        return Self
+        return Tile
         {
             r : r,
             g : g,
@@ -31,9 +31,17 @@ impl Tile
     }
 }
 
+impl Default for Tile
+{
+	fn default() -> Tile
+	{
+		return Tile::new(0_f64, 0_f64, 0_f64, 0_f64);
+	}
+}
+
 pub struct FrameBuffer
 {
-    //A buffer for holding which characters are in what state
+    //A buffer for holding which tiles are in what state
     content : Vec<Vec<Tile>>,
 
     //Width and Height of buffer
@@ -60,7 +68,7 @@ impl FrameBuffer
         {
             width : width,
             height : height,
-            content : vec![vec![ Tile::new(0_f64, 0_f64, 0_f64, 1_f64) ; width] ; height], //vectors are needed bc rust doesnt have variable array lengths >:(
+            content : vec![ vec![ Tile::new(0_f64, 0_f64, 0_f64, 1_f64) ; width] ; height], //vectors are needed bc rust doesnt have variable array lengths >:(
             vert_border_tile : format!("{}", "|".on_black()),
             horiz_border : format!("{}{}{} ", "+", "-".repeat(width * 2).on_black(), "+")
         };
@@ -105,13 +113,7 @@ impl FrameBuffer
             return;
         }
 
-        let prev_tile : Tile = Tile::new
-        (
-            self.content[point.y as usize][point.x as usize].r,
-            self.content[point.y as usize][point.x as usize].g,
-            self.content[point.y as usize][point.x as usize].b,
-            self.content[point.y as usize][point.x as usize].a
-        );
+        let prev_tile : Tile = tile.clone();
 
         let new_tile : Tile = Tile::new
         (
@@ -126,13 +128,6 @@ impl FrameBuffer
 
     pub fn draw_triangle(self : &mut Self, triangle : &Triangle) -> ()
     {
-        let x_lowest_point : Point = triangle.get_point(triangle.lowest_x.0.unwrap() as usize);
-        let x_highest_point : Point = triangle.get_point(triangle.highest_x.0.unwrap() as usize);
-        let neither_x_extreme_point : Point = triangle.get_point((3 - triangle.lowest_x.0.unwrap() -  triangle.highest_x.0.unwrap()) as usize);
-        let neither_x_exists : bool = (triangle.lowest_x.1 != None) || (triangle.highest_x.1 != None); //needed for edge cases with tris with 2 points at the same x coord
-        let num_tri_floor_pieces : u8 = if neither_x_extreme_point.is_above_line(&x_lowest_point, &x_highest_point) || neither_x_exists { 1 } else { 2 };
-        //^^^ If the owner of neither x extreme is above the other two points, it's a one piece floor
-
         //Go through all points within triangle extreme and determine if they lie within the tri
         let lowest_y : f64 = triangle.get_point(triangle.lowest_y.0.unwrap() as usize).y;
         let highest_y : f64 = triangle.get_point(triangle.highest_y.0.unwrap() as usize).y;
@@ -150,7 +145,7 @@ impl FrameBuffer
                 let mut tile : Tile =
                 match triangle.colorer
                 {
-                    Some(colorer) => colorer(x as f64, y as f64, (x as f64 - lowest_x) / triangle.width, (y as f64 - lowest_y) / triangle.height),
+                    Some(colorer) => colorer(Point::new((x as f64 - lowest_x) / triangle.width, (y as f64 - lowest_y) / triangle.height), &[]),
                     None => Tile::new(1_f64, 1_f64, 1_f64, 1_f64)
                 };
 
@@ -165,12 +160,9 @@ impl FrameBuffer
                             y : y as f64 + (y_div as f64 / NUM_DIVS as f64),
                         };
 
-                        let mut above_below_checks : u8 = 0; //number of how many lines created by tri the point is above
-                        above_below_checks += tested.is_above_line(&triangle.get_point(0), &triangle.get_point(1)) as u8;
-                        above_below_checks += tested.is_above_line(&triangle.get_point(0), &triangle.get_point(2)) as u8;
-                        above_below_checks += tested.is_above_line(&triangle.get_point(1), &triangle.get_point(2)) as u8;
-
-                        if above_below_checks == num_tri_floor_pieces
+						let (w_1, w_2, w_3) : (f64, f64, f64) = triangle.calc_weights(&tested);
+                        
+                        if (w_1 >= 0_f64) && (w_2 >= 0_f64) && (w_3 >= 0_f64)
                         {
                             num_valid_divs += 1;
                         }
@@ -181,11 +173,10 @@ impl FrameBuffer
                 {
                     continue;
                 }
-
-                let pixel_fitness : f64 = num_valid_divs as f64 / (NUM_DIVS * NUM_DIVS) as f64;
-
-                tile.a *= pixel_fitness;
-
+                				
+                tile.a *= (num_valid_divs as f64 / (NUM_DIVS * NUM_DIVS) as f64);
+                tile.a = 0.5_f64; 
+                
                 self.draw_point( &Point{x : x as f64, y : y as f64}, tile)
             }
         }
