@@ -6,7 +6,7 @@ use terminal_size::{Width, Height, terminal_size};
 
 const PIXEL_CHAR : &str = "  ";
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Tile
 {
     r : f64,
@@ -90,7 +90,7 @@ impl FrameBuffer
 
         //Draw Buffer Contents with Border
         println!("{}", self.horiz_border);
-        for (row_num, row) in (1_usize..=self.height).rev().zip(self.content.iter().rev())
+        for row in self.content.iter().rev()
         {
             //Draw row contents
             print!("{}", self.vert_border_tile);
@@ -108,13 +108,20 @@ impl FrameBuffer
         //assert!((point.x as usize) < width, "X POINT VALUE TOO LARGE");
         //assert!((point.y as usize) < height, "Y POINT VALUE TOO LARGE");
         //Prevent the drawing of points that are out of range
+        
         if point.x >= self.width as f64 || point.y >= self.height as f64 || point.x < 0_f64 || point.y < 0_f64
         {
             return;
         }
 
-        let prev_tile : Tile = tile.clone();
+        let mut prev_tile : Tile = self.content[point.y as usize][point.x as usize].clone();
 
+		//Removes blending if previous pixel was totally black, gives better looking base canvas
+		if (prev_tile == Tile::new(0_f64, 0_f64, 0_f64, prev_tile.a))
+		{
+			prev_tile = tile.clone();
+		}
+		
         let new_tile : Tile = Tile::new
         (
             tile.r * tile.a + prev_tile.r * (1_f64 - tile.a),
@@ -148,15 +155,15 @@ impl FrameBuffer
                     Some(colorer) =>
                     {
                     	let (w1, w2, w3) : (f64, f64, f64) = triangle.calc_weights(&Point::new(x as f64, y as f64));
-                    	let num_weighted_vals : u8 = triangle.coloring_data.as_ref().unwrap()[0].len() as u8;
+                    	let num_weighted_vals : u8 = triangle.coloring_data.len() as u8;
                     	let mut weighted_vals : Vec<f64> = vec![0_f64 ; num_weighted_vals as usize];
                     	for weight_idx in 0..num_weighted_vals
                     	{
                     		weighted_vals[weight_idx as usize] =
                     		{
-                    			triangle.coloring_data.as_ref().unwrap()[0][weight_idx as usize] * w1 +
-                    			triangle.coloring_data.as_ref().unwrap()[1][weight_idx as usize] * w2 +
-                    			triangle.coloring_data.as_ref().unwrap()[2][weight_idx as usize] * w3	
+                    			triangle.coloring_data[weight_idx as usize].0 * w1 +
+                    			triangle.coloring_data[weight_idx as usize].1 * w2 +
+                    			triangle.coloring_data[weight_idx as usize].2 * w3	
                     		}
                     	}
                     	colorer(Point::new((x as f64 - lowest_x) / triangle.width, (y as f64 - lowest_y) / triangle.height), &weighted_vals)
@@ -189,9 +196,8 @@ impl FrameBuffer
                     continue;
                 }
                 				
-                tile.a *= (num_valid_divs as f64 / (NUM_DIVS * NUM_DIVS) as f64);
-                tile.a = 0.5_f64; 
-                
+                tile.a = (num_valid_divs as f64 / (NUM_DIVS * NUM_DIVS) as f64);
+                                
                 self.draw_point( &Point{x : x as f64, y : y as f64}, tile)
             }
         }

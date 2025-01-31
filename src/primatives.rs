@@ -4,7 +4,7 @@ use crate::framebuffer;
 use crate::framebuffer::FrameBuffer;
 use crate::framebuffer::Tile;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Point
 {
     pub x : f64,
@@ -63,6 +63,7 @@ impl Point
 pub struct Triangle
 {
     points : [Point; 3],
+    
     //The *indexes* of which point has these titles
     //Having to constantly convert these to usizes for indexing is some shit
     //Represented as tuples becuase two points can share the same extreme
@@ -76,8 +77,9 @@ pub struct Triangle
     //width and height needed for calculating UVs in colorizer
     pub width : f64,
     pub height : f64,
+    
     //Data interpolated along the triangle during coloring - all vecs must be equal in size
-    pub coloring_data : Option<[ Vec<f64> ; 3]>,
+    pub coloring_data : Vec<(f64, f64, f64)>,
     pub colorer : Option<TriColorer>
 }
 
@@ -87,26 +89,18 @@ pub type TriColorer = Box<dyn Fn(Point, &[f64]) -> framebuffer::Tile>;
 
 impl Triangle
 {
-    pub fn new(point_one : (Point, Option<Vec<f64>>), point_two : (Point, Option<Vec<f64>>), point_three : (Point, Option<Vec<f64>>), colorer : Option<TriColorer>) -> Triangle
-    {
-    	let using_color_data : bool = (!point_one.1.is_none() && !point_two.1.is_none() && !point_two.1.is_none());
-    	
-    	if (using_color_data)
-    	{
-    		assert_eq!(point_one.1.clone().unwrap().len(), point_two.1.clone().unwrap().len(), "All triangle point coloring data must be of equal length");
-	    	assert_eq!(point_two.1.clone().unwrap().len(), point_three.1.clone().unwrap().len(), "All triangle point coloring data must be of equal length");	
-    	}
-    	
+    pub fn new(point_one : Point, point_two : Point, point_three : Point, coloring_data : Vec<(f64, f64, f64)>, colorer : Option<TriColorer>) -> Triangle
+    {    	
         let mut ret : Triangle = Triangle
         {
-            points : [point_one.0, point_two.0, point_three.0],
+            points : [point_one, point_two, point_three],
             lowest_x : (None, None),
             highest_x : (None, None),
             lowest_y : (None, None),
             highest_y : (None, None),
             width : 0_f64,
             height : 0_f64,
-            coloring_data : if (using_color_data) {Some([point_one.1.unwrap(), point_two.1.unwrap(), point_three.1.unwrap()])} else {None},
+            coloring_data : coloring_data,
             colorer : colorer
         };
         ret.update_tri();
